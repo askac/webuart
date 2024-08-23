@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UART Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        #terminal, #debugLog {
+            width: 80%;
+            height: 180px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #555;
+            overflow-y: scroll;
+            font-family: monospace;
+        }
+        .controls {
+            margin-bottom: 10px;
+        }
+        .command-buttons-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            width: 80%
+        }
+        .command-buttons-container button {
+            margin: 5px;
+            width: calc(100% / 6 - 12px);
+            background-color: #444;
+            color: #f0f0f0;
+            border: 1px solid #555;
+            padding: 5px;
+            cursor: pointer;
+        }
+        .command-buttons-container button:hover {
+            background-color: #555;
+        }
+        .manual-command {
+            margin-top: 20px;
+        }
+        .manual-command label {
+            margin-right: 10px;
+        }
+        .manual-command input[type="text"] {
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            border: 1px solid #555;
+            padding: 5px;
+        }
+        select, button {
+            background-color: #444;
+            color: #f0f0f0;
+            border: 1px solid #555;
+            padding: 5px;
+        }
+        select:hover, button:hover {
+            background-color: #555;
+        }
+
+        input[type="radio"] {
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid #888;
+            background-color: #444;
+            cursor: pointer;
+            position: relative;
+        }
+        input[type="radio"]:checked {
+            background-color: #3498db;
+            border-color: #bbb;
+        }
+        input[type="radio"]:hover {
+            border-color: #bbb;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>UART Interface</h1>
+    <div class="controls">
+        <label for="baudRate">Baud Rate:</label>
+        <select id="baudRate">
+            <option value="9600">9600</option>
+            <option value="19200">19200</option>
+            <option value="38400">38400</option>
+            <option value="57600">57600</option>
+            <option value="115200" selected>115200</option>
+            <option value="230400">230400</option>
+            <option value="460800">460800</option>
+        </select>
+        <button id="connectButton">Connect</button>
+        <span id="portLabel"></span>
+    </div>
+    <textarea id="terminal" readonly></textarea><br>
+
+    <div class="command-buttons-container" id="commandButtons"></div>
+
+    <div class="manual-command">
+        <label>Manual Command:</label>
+        <input type="radio" id="manualText" name="manualType" value="text" checked> Text
+        <input type="radio" id="manualHex" name="manualType" value="hex"> Hex
+        <label for="manualCmd">Cmd:</label>
+        <input type="text" id="manualCmd">
+        <button id="manualSendButton">Send</button>
+    </div>
+
+    <h2>Debug Log</h2>
+    <textarea id="debugLog" readonly></textarea><br>
+
+    <script>
+        let port;
+        let writer;
+        let reader;
+        let isConnected = false;
+
+        // Command buttons configuration
+        const commands = [
+            { label: "text cmd 1", type: "text", command: "*FOO*BAR*1" },
+            { label: "hex cmd 2", type: "hex", command: "DEADBEEF02" },
+            { label: "text cmd 3", type: "text", command: "*FOO*BAR*3" },
+            { label: "hex cmd 4", type: "hex", command: "DEADBEEF04" },
+            { label: "text cmd 5", type: "text", command: "*FOO*BAR*5" },
+            { label: "hex cmd 6", type: "hex", command: "DEADBEEF06" },
+            { label: "text cmd 7", type: "text", command: "*FOO*BAR*7" },
+            { label: "hex cmd 8", type: "hex", command: "DEAD BEEF 08" },
+            // Add more
+        ];
+
+
+        document.getElementById('connectButton').addEventListener('click', async () => {
+            if (isConnected) {
+                await disconnect();
+            } else {
+                await connect();
+            }
+        });
+
+        async function connect() {
+            try {
+                const baudRate = parseInt(document.getElementById('baudRate').value, 10);
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate });
+
+                writer = port.writable.getWriter();
+                reader = port.readable.getReader();
+
+                isConnected = true;
+                document.getElementById('connectButton').textContent = 'Disconnect';
+                document.getElementById('portLabel').textContent = `Connected to: ${port.getInfo().usbVendorId || "Unknown Vendor"}:${port.getInfo().usbProductId || "Unknown Product"}`;
+
+                readData();
+            } catch (err) {
+                console.error('Failed to open serial port:', err);
+            }
+        }
+
+        async function disconnect() {
+            try {
+                if (reader) {
+                    await reader.cancel();
+                    await reader.releaseLock();
+                }
+                if (writer) {
+                    await writer.close();
+                    await writer.releaseLock();
+                }
+                if (port) {
+                    await port.close();
+                }
+            } catch (err) {
+                console.error('Failed to close serial port:', err);
+            } finally {
+                isConnected = false;
+                document.getElementById('connectButton').textContent = 'Connect';
+                document.getElementById('portLabel').textContent = '';
+            }
+        }
+
+        async function readData() {
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    if (value) {
+                        displayData(value);
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading data:', error);
+            }
+        }
+
+        function displayData(data) {
+            const terminal = document.getElementById('terminal');
+            terminal.value += new TextDecoder().decode(data);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function logDebug(message) {
+            const debugLog = document.getElementById('debugLog');
+            debugLog.value += message + "\n";
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        async function sendText(data) {
+            if (writer) {
+                const dataArray = new TextEncoder().encode(data + "\n");
+                await writer.write(dataArray);
+                logDebug(`Sent text: ${data}`);
+            }
+        }
+
+        async function sendHex(data) {
+            if (writer) {
+                data = data.replace(/\s+/g, ''); // Remove all spaces
+                if (!/^[0-9a-fA-F]+$/.test(data)) {
+                    alert('Invalid hex format!');
+                    return;
+                }
+                if (data.length % 2 !== 0) {
+                    alert('Hex string length must be even!');
+                    return;
+                }
+                const hexData = data.match(/.{1,2}/g).map(byte => parseInt(byte, 16));
+                const byteArray = new Uint8Array(hexData);
+                await writer.write(byteArray);
+                logDebug(`Sent hex: ${data}`);
+            }
+        }
+
+        function createCommandButton(label, type, command) {
+            const button = document.createElement('button');
+            button.textContent = label;
+            button.addEventListener('click', () => {
+                if (type === 'text') {
+                    sendText(command);
+                } else if (type === 'hex') {
+                    sendHex(command);
+                }
+            });
+            document.getElementById('commandButtons').appendChild(button);
+        }
+
+        commands.forEach(cmd => createCommandButton(cmd.label, cmd.type, cmd.command));
+
+        document.getElementById('manualSendButton').addEventListener('click', () => {
+            const commandType = document.querySelector('input[name="manualType"]:checked').value;
+            const command = document.getElementById('manualCmd').value.trim();
+            if (commandType === 'text') {
+                sendText(command);
+            } else if (commandType === 'hex') {
+                sendHex(command);
+            }
+        });
+    </script>
+</body>
+</html>
