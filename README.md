@@ -6,7 +6,7 @@
 
 - **Connect/Disconnect:** Select a COM port and baud rate to establish or close a connection with an MCU.
 - **Command Buttons:** Predefined command buttons for sending frequently used commands.
-- **Manual Command Input:** Manually input and send text or hexadecimal commands.
+- **Manual Command Input:** Manually input and send text or hexadecimal commands with an option to append a newline.
 - **Debug Log:** A log that displays the sent commands for debugging purposes.
 
 ## Installation
@@ -37,6 +37,7 @@
 - **Send Commands:**
   - Use the provided buttons to send frequently used commands.
   - Input text or hexadecimal values in the manual input field to send custom commands.
+  - Optionally, append a newline to your manual commands using the "Newline" checkbox.
 
 - **View Received Data:**
   - The received data from the MCU will be displayed in the terminal area.
@@ -54,8 +55,8 @@ To modify the predefined command buttons, follow these steps:
 
    ```javascript
    const commands = [
-       { label: "Text Command 1", type: "text", command: "*FOOR*BAR" },
-       { label: "Hex Command 2", type: "hex", command: "DEADBEAF" }
+       { label: "Text Command 1", type: "text", command: "*FOOR*BAR", newline: true },
+       { label: "Hex Command 2", type: "hex", command: "DEADBEAF", newline: false }
    ];
    ```
 
@@ -65,10 +66,9 @@ To modify the predefined command buttons, follow these steps:
 
    ```javascript
    const commands = [
-       { label: "Text Command 1", type: "text", command: "*FOOR*BAR" },
-       { label: "Hex Command 2", type: "hex", command: "DEADBEAF" },
-       { label: "Hex Command 3", type: "hex", command: "DEADBEAF03" },
-
+       { label: "Text Command 1", type: "text", command: "*FOOR*BAR", newline: true },
+       { label: "Hex Command 2", type: "hex", command: "DEADBEAF", newline: false },
+       { label: "Hex Command 3", type: "hex", command: "DEADBEAF03", newline: true },
    ];
    ```
 
@@ -78,7 +78,7 @@ To modify the predefined command buttons, follow these steps:
 
    ```javascript
    const commands = [
-       { label: "New Label", type: "hex", command: "NewHexCommand" }
+       { label: "New Label", type: "hex", command: "NewHexCommand", newline: true }
    ];
    ```
 
