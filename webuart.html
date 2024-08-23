@@ -29,7 +29,7 @@
             display: flex;
             flex-wrap: wrap;
             margin-top: 10px;
-            width: 80%
+            width: 80%;
         }
         .command-buttons-container button {
             margin: 5px;
@@ -45,15 +45,18 @@
         }
         .manual-command {
             margin-top: 20px;
+            display: flex;
+            align-items: center;
         }
         .manual-command label {
-            margin-right: 10px;
+            margin-right: 5px;
         }
         .manual-command input[type="text"] {
             background-color: #1e1e1e;
             color: #f0f0f0;
             border: 1px solid #555;
             padding: 5px;
+            margin-right: 10px;
         }
         select, button {
             background-color: #444;
@@ -65,7 +68,7 @@
             background-color: #555;
         }
 
-        input[type="radio"] {
+        input[type="radio"], input[type="checkbox"] {
             appearance: none;
             width: 15px;
             height: 15px;
@@ -74,15 +77,19 @@
             background-color: #444;
             cursor: pointer;
             position: relative;
+            margin-right: 5px;
         }
-        input[type="radio"]:checked {
+        input[type="radio"]:checked, input[type="checkbox"]:checked {
             background-color: #3498db;
             border-color: #bbb;
         }
-        input[type="radio"]:hover {
+        input[type="radio"]:hover, input[type="checkbox"]:hover {
             border-color: #bbb;
         }
 
+        input[type="checkbox"] {
+            border-radius: 4px; /* Checkbox should not be fully round */
+        }
     </style>
 </head>
 <body>
@@ -109,8 +116,11 @@
         <label>Manual Command:</label>
         <input type="radio" id="manualText" name="manualType" value="text" checked> Text
         <input type="radio" id="manualHex" name="manualType" value="hex"> Hex
+        <input type="checkbox" id="manualNewline" style="margin-left: 15px;">
+		<label for="manualNewline" style="margin-right: 20px;">Newline</label>
+        
         <label for="manualCmd">Cmd:</label>
-        <input type="text" id="manualCmd">
+        <input type="text" id="manualCmd" style="width: 25%">
         <button id="manualSendButton">Send</button>
     </div>
 
@@ -125,17 +135,17 @@
 
         // Command buttons configuration
         const commands = [
-            { label: "text cmd 1", type: "text", command: "*FOO*BAR*1" },
-            { label: "hex cmd 2", type: "hex", command: "DEADBEEF02" },
-            { label: "text cmd 3", type: "text", command: "*FOO*BAR*3" },
-            { label: "hex cmd 4", type: "hex", command: "DEADBEEF04" },
-            { label: "text cmd 5", type: "text", command: "*FOO*BAR*5" },
-            { label: "hex cmd 6", type: "hex", command: "DEADBEEF06" },
-            { label: "text cmd 7", type: "text", command: "*FOO*BAR*7" },
-            { label: "hex cmd 8", type: "hex", command: "DEAD BEEF 08" },
-            // Add more
+            { label: "text cmd 1", type: "text", command: "*FOO*BAR*1", newline: true },
+            { label: "hex cmd 2", type: "hex", command: "DEADBEEF02", newline: false },
+            { label: "text cmd 3", type: "text", command: "*FOO*BAR*3", newline: true },
+            { label: "hex cmd 4", type: "hex", command: "DEADBEEF04", newline: false },
+            { label: "text cmd 5", type: "text", command: "*FOO*BAR*5", newline: true },
+            { label: "hex cmd 6", type: "hex", command: "DEADBEEF06", newline: false },
+            { label: "text cmd 7", type: "text", command: "*FOO*BAR*7", newline: true },
+            { label: "hex cmd 8", type: "hex", command: "DEAD BEEF 08", newline: false },
+			{ label: "Send Ctrl+P", type: "hex", command: "10", newline: false },
+            { label: "Send Ctrl+P x 2", type: "hex", command: "1010", newline: false }
         ];
-
 
         document.getElementById('connectButton').addEventListener('click', async () => {
             if (isConnected) {
@@ -214,11 +224,11 @@
             debugLog.scrollTop = debugLog.scrollHeight;
         }
 
-        async function sendText(data) {
+        async function sendText(data, newline) {
             if (writer) {
-                const dataArray = new TextEncoder().encode(data + "\n");
+                const dataArray = new TextEncoder().encode(data + (newline ? "\n" : ""));
                 await writer.write(dataArray);
-                logDebug(`Sent text: ${data}`);
+                logDebug(`Sent text: ${data} ${newline ? '\\n' : ''}`);
             }
         }
 
@@ -240,12 +250,12 @@
             }
         }
 
-        function createCommandButton(label, type, command) {
+        function createCommandButton(label, type, command, newline) {
             const button = document.createElement('button');
             button.textContent = label;
             button.addEventListener('click', () => {
                 if (type === 'text') {
-                    sendText(command);
+                    sendText(command, newline);
                 } else if (type === 'hex') {
                     sendHex(command);
                 }
@@ -253,13 +263,14 @@
             document.getElementById('commandButtons').appendChild(button);
         }
 
-        commands.forEach(cmd => createCommandButton(cmd.label, cmd.type, cmd.command));
+        commands.forEach(cmd => createCommandButton(cmd.label, cmd.type, cmd.command, cmd.newline));
 
         document.getElementById('manualSendButton').addEventListener('click', () => {
             const commandType = document.querySelector('input[name="manualType"]:checked').value;
             const command = document.getElementById('manualCmd').value.trim();
+            const newline = document.getElementById('manualNewline').checked;
             if (commandType === 'text') {
-                sendText(command);
+                sendText(command, newline);
             } else if (commandType === 'hex') {
                 sendHex(command);
             }
